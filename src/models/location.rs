@@ -1,9 +1,10 @@
 use crate::enums::{Country, USAState};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, FromRow)]
 pub struct Location {
     pub location_id: Uuid,
     pub name: String,
@@ -16,7 +17,9 @@ pub struct Location {
     pub state: Option<USAState>,
     pub country: Country,
     pub postal_code: String,
-    pub bounding_box: Option<((f64, f64), (f64, f64))>, // ((lat_min, lon_min), (lat_max, lon_max))
+    // See https://github.com/opengeospatial/wkt for more details on KWTs
+    pub bounding_box: Option<String>, // Store as WKT (Well-Known Text)
+    pub location: String,             // Store as WKT (Well-Known Text)
     pub time_zone: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
@@ -39,7 +42,8 @@ impl Location {
         country: Country,
         postal_code: &str,
         time_zone: Option<&str>,
-        bounding_box: Option<((f64, f64), (f64, f64))>,
+        bounding_box: Option<&str>,
+        location: &str,
         description: Option<&str>,
         notes: Option<&str>,
     ) -> Self {
@@ -55,7 +59,8 @@ impl Location {
             state,
             country,
             postal_code: postal_code.to_string(),
-            bounding_box,
+            bounding_box: bounding_box.map(|s| s.to_string()),
+            location: location.to_string(),
             time_zone: time_zone.map(|s| s.to_string()),
             created_at: Utc::now(),
             updated_at: None,
