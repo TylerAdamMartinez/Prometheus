@@ -1,4 +1,9 @@
 use serde::{Deserialize, Serialize};
+use sqlx::{
+    Decode, Encode, Postgres, Type,
+    encode::IsNull,
+    postgres::{PgArgumentBuffer, PgValueRef},
+};
 use std::{fmt, str::FromStr};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -173,5 +178,28 @@ impl FromStr for Country {
 impl fmt::Display for Country {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.alpha3_code())
+    }
+}
+
+impl Type<sqlx::Postgres> for Country {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("TEXT")
+    }
+}
+
+impl Encode<'_, Postgres> for Country {
+    fn encode_by_ref(
+        &self,
+        buf: &mut PgArgumentBuffer,
+    ) -> Result<IsNull, sqlx::error::BoxDynError> {
+        buf.extend_from_slice(self.alpha3_code().as_bytes());
+        Ok(IsNull::No)
+    }
+}
+
+impl<'r> Decode<'r, Postgres> for Country {
+    fn decode(value: PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let s = <&str as Decode<Postgres>>::decode(value)?;
+        Country::from_str(s).map_err(|_| "Failed to decode country".into())
     }
 }
