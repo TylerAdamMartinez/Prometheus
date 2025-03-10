@@ -1,18 +1,83 @@
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use http::StatusCode;
 use sqlx::PgPool;
+use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::models::Location;
+use crate::{
+    enums::{Country, USAState},
+    models::Location,
+};
 
 pub async fn get_location(
     State(pool): State<PgPool>,
-    axum::extract::Path(id): axum::extract::Path<Uuid>,
+    id: Uuid,
 ) -> Result<Json<Location>, StatusCode> {
-    let location = sqlx::query_as!(Location, "SELECT * FROM locations WHERE location_id = $1", id)
-        .fetch_one(&pool)
-        .await
-        .map_err(|_| StatusCode::NO_CONTENT)?;
+    let row = match sqlx::query!(
+        r#"
+        SELECT 
+            location_id, name, latitude, longitude, altitude, 
+            street_number, street_name, city, state, country, postal_code, 
+            ST_AsText(bounding_box) AS "bounding_box?", 
+            ST_AsText(location) AS location, 
+            time_zone, created_at, updated_at, description, is_active, 
+            deactivated_at, is_public, notes
+        FROM location
+        WHERE location_id = $1
+        "#,
+        id
+    )
+    .fetch_optional(&pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return Err(StatusCode::NO_CONTENT),
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let state = match row.state.as_deref().map(USAState::from_str) {
+        Some(Ok(state)) => Some(state),
+        Some(Err(_)) => {
+            eprintln!("Invalid state format in database: {:?}", row.state);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        None => None,
+    };
+
+    let country = match Country::from_str(&row.country) {
+        Ok(country) => country,
+        Err(_) => {
+            eprintln!("Invalid country format in database: {}", row.country);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let location = Location {
+        location_id: row.location_id,
+        name: row.name,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        altitude: row.altitude,
+        street_number: row.street_number,
+        street_name: row.street_name,
+        city: row.city,
+        state,
+        country,
+        postal_code: row.postal_code,
+        bounding_box: row.bounding_box,
+        location: row.location,
+        time_zone: row.time_zone,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        description: row.description,
+        is_active: row.is_active,
+        deactivated_at: row.deactivated_at,
+        is_public: row.is_public,
+        notes: row.notes,
+    };
 
     Ok(Json(location))
 }
