@@ -1,4 +1,4 @@
-use axum::{Json, extract::State};
+use axum::{Json, extract::State, handler::HandlerWithoutStateExt, response::IntoResponse};
 use http::StatusCode;
 use sqlx::PgPool;
 use std::str::FromStr;
@@ -9,10 +9,7 @@ use crate::{
     models::Location,
 };
 
-pub async fn get_location(
-    State(pool): State<PgPool>,
-    id: Uuid,
-) -> Result<Json<Location>, StatusCode> {
+pub async fn get_location(State(pool): State<PgPool>, id: Uuid) -> impl IntoResponse {
     tracing::info!("Received GET request for location_id: {}", id);
 
     let row = match sqlx::query!(
@@ -38,19 +35,35 @@ pub async fn get_location(
         }
         Ok(None) => {
             tracing::info!("Location ID {} not found", id);
-            return Err(StatusCode::NO_CONTENT);
+            return StatusCode::NO_CONTENT.into_response();
         }
         Err(e) => {
             tracing::error!("Database error for ID {}: {:?}", id, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
+
+    if let Some(deactivated_at) = row.deactivated_at {
+        tracing::info!(
+            "Location ID {} is no longer in use, deactivated at: {}",
+            id,
+            deactivated_at
+        );
+        return (
+            StatusCode::OK,
+            Json(format!(
+                "This location is no longer in use and was deactivated at {}",
+                deactivated_at
+            )),
+        )
+            .into_response();
+    }
 
     let state = match row.state.as_deref().map(USAState::from_str) {
         Some(Ok(state)) => Some(state),
         Some(Err(_)) => {
             tracing::error!("Invalid state format in database: {:?}", row.state);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
         None => None,
     };
@@ -59,7 +72,7 @@ pub async fn get_location(
         Ok(country) => country,
         Err(_) => {
             tracing::error!("Invalid country format in database: {}", row.country);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
 
@@ -88,5 +101,5 @@ pub async fn get_location(
     };
 
     tracing::info!("Returning location data for ID: {}", location.location_id);
-    Ok(Json(location))
+    (StatusCode::OK, Json(location)).into_response()
 }
