@@ -1,4 +1,8 @@
-use axum::{Json, extract::State, handler::HandlerWithoutStateExt, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Path, State},
+    response::IntoResponse,
+};
 use http::StatusCode;
 use sqlx::PgPool;
 use std::str::FromStr;
@@ -9,7 +13,7 @@ use crate::{
     models::Location,
 };
 
-pub async fn get_location(State(pool): State<PgPool>, id: Uuid) -> impl IntoResponse {
+pub async fn get_location(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> impl IntoResponse {
     tracing::info!("Received GET request for location_id: {}", id);
 
     let row = match sqlx::query!(
