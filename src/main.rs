@@ -5,10 +5,7 @@ use crate::handlers::{
     },
     root,
 };
-use axum::{
-    Router,
-    routing::{delete, get, post, put},
-};
+use axum::{Router, routing::get};
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use std::{env, net::SocketAddr};
@@ -29,12 +26,12 @@ async fn main() -> Result<(), sqlx::Error> {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/locations", post(create_location).get(get_all_locations))
+        .route("/locations", get(get_all_locations).post(create_location))
         .route(
-            "/locations/:id",
+            "/locations/{id}",
             get(get_location)
-                .put(update_location)
-                .delete(delete_location),
+                .delete(delete_location)
+                .put(update_location),
         )
         .route("/locations/nearby", get(get_locations_nearby))
         .with_state(db_pool);
