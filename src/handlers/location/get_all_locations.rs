@@ -27,7 +27,8 @@ pub async fn get_all_locations(
         query.city
     );
 
-    let records = sqlx::query!(
+    let records = sqlx::query_as!(
+        Location,
         r#"
         SELECT 
             location_id, name, latitude, longitude, altitude, 
@@ -40,6 +41,7 @@ pub async fn get_all_locations(
         WHERE ($1::TEXT IS NULL OR state = $1::TEXT)
           AND ($2::TEXT IS NULL OR country = $2::TEXT)
           AND ($3::TEXT IS NULL OR city ILIKE '%' || $3 || '%')
+          AND deactivated_at IS NULL  --  Exclude deactivated locations
         ORDER BY created_at DESC
         LIMIT $4 OFFSET $5
         "#,
@@ -64,36 +66,7 @@ pub async fn get_all_locations(
     Ok(Json(
         records
             .into_iter()
-            .map(|record| {
-                LocationDTO::from(Location {
-                    location_id: record.location_id,
-                    name: record.name,
-                    latitude: record.latitude,
-                    longitude: record.longitude,
-                    altitude: record.altitude,
-                    street_number: record.street_number,
-                    street_name: record.street_name,
-                    city: record.city,
-                    state: record
-                        .state
-                        .and_then(|s| Some(s.parse().unwrap_or(crate::enums::USAState::UNKNOWN))),
-                    country: record
-                        .country
-                        .parse()
-                        .unwrap_or(crate::enums::Country::Unknown),
-                    postal_code: record.postal_code,
-                    bounding_box: record.bounding_box,
-                    location: record.location,
-                    time_zone: record.time_zone,
-                    created_at: record.created_at,
-                    updated_at: record.updated_at,
-                    description: record.description,
-                    is_active: record.is_active,
-                    deactivated_at: record.deactivated_at,
-                    is_public: record.is_public,
-                    notes: record.notes,
-                })
-            })
+            .map(|record| LocationDTO::from(&record))
             .collect(),
     ))
 }

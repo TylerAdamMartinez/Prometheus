@@ -19,7 +19,8 @@ pub async fn update_location(
 ) -> impl IntoResponse {
     tracing::info!("Received request to update location ID: {}", id);
 
-    let record = sqlx::query!(
+    let record = sqlx::query_as!(
+        Location,
         r#"
         UPDATE location
         SET 
@@ -73,38 +74,7 @@ pub async fn update_location(
     match record {
         Ok(Some(record)) => {
             tracing::info!("Successfully updated location ID: {}", id);
-            (
-                StatusCode::OK,
-                Json(LocationDTO::from(Location {
-                    location_id: record.location_id,
-                    name: record.name,
-                    latitude: record.latitude,
-                    longitude: record.longitude,
-                    altitude: record.altitude,
-                    street_number: record.street_number,
-                    street_name: record.street_name,
-                    city: record.city,
-                    state: record
-                        .state
-                        .and_then(|s| Some(s.parse().unwrap_or(crate::enums::USAState::UNKNOWN))),
-                    country: record
-                        .country
-                        .parse()
-                        .unwrap_or(crate::enums::Country::Unknown),
-                    postal_code: record.postal_code,
-                    bounding_box: record.bounding_box,
-                    location: record.location,
-                    time_zone: record.time_zone,
-                    created_at: record.created_at,
-                    updated_at: record.updated_at,
-                    description: record.description,
-                    is_active: record.is_active,
-                    deactivated_at: record.deactivated_at,
-                    is_public: record.is_public,
-                    notes: record.notes,
-                })),
-            )
-                .into_response()
+            (StatusCode::OK, Json(LocationDTO::from(&record))).into_response()
         }
         Ok(None) => {
             tracing::info!("Location ID {} not found for update", id);

@@ -1,9 +1,6 @@
 use crate::handlers::{
-    location::{
-        create_location, delete_location, get_all_locations, get_location, get_locations_nearby,
-        update_location,
-    },
-    root,
+    create_location, delete_location, get_all_locations, get_location, get_locations_nearby, root,
+    update_location,
 };
 use axum::{Router, routing::get};
 use dotenvy::dotenv;

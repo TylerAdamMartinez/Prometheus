@@ -1,12 +1,6 @@
-use serde::{Deserialize, Serialize};
-use sqlx::{
-    Decode, Encode, Postgres, Type,
-    encode::IsNull,
-    postgres::{PgArgumentBuffer, PgValueRef},
-};
 use std::{fmt, str::FromStr};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum Country {
     China,
     India,
@@ -57,7 +51,7 @@ pub enum Country {
     Nepal,
     Venezuela,
     IvoryCoast,
-    Unknown,
+    UNKNOWN,
 }
 
 impl Country {
@@ -113,13 +107,13 @@ impl Country {
             Country::Nepal => "NPL",
             Country::Venezuela => "VEN",
             Country::IvoryCoast => "CIV",
-            Country::Unknown => "UNKNOWN",
+            Country::UNKNOWN => "UNKNOWN",
         }
     }
 }
 
 impl FromStr for Country {
-    type Err = Country;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
@@ -172,42 +166,19 @@ impl FromStr for Country {
             "NPL" => Ok(Country::Nepal),
             "VEN" => Ok(Country::Venezuela),
             "CIV" => Ok(Country::IvoryCoast),
-            _ => Err(Country::Unknown),
+            _ => Err(()),
         }
     }
 }
 
 impl From<String> for Country {
     fn from(value: String) -> Self {
-        value.parse().unwrap_or(Country::Unknown)
+        value.parse().unwrap_or(Country::UNKNOWN)
     }
 }
 
 impl fmt::Display for Country {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.alpha3_code())
-    }
-}
-
-impl Type<sqlx::Postgres> for Country {
-    fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("TEXT")
-    }
-}
-
-impl Encode<'_, Postgres> for Country {
-    fn encode_by_ref(
-        &self,
-        buf: &mut PgArgumentBuffer,
-    ) -> Result<IsNull, sqlx::error::BoxDynError> {
-        buf.extend_from_slice(self.alpha3_code().as_bytes());
-        Ok(IsNull::No)
-    }
-}
-
-impl<'r> Decode<'r, Postgres> for Country {
-    fn decode(value: PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
-        let s = <&str as Decode<Postgres>>::decode(value)?;
-        Country::from_str(s).map_err(|_| "Failed to decode country".into())
     }
 }

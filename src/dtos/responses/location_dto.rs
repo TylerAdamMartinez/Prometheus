@@ -19,30 +19,30 @@ pub struct LocationDTO {
     pub notes: Option<String>,
 }
 
-impl From<Location> for LocationDTO {
-    fn from(loc: Location) -> Self {
+impl From<&Location> for LocationDTO {
+    fn from(loc: &Location) -> Self {
         LocationDTO {
             location_id: loc.location_id.to_string(),
-            name: loc.name,
+            name: loc.name.clone(),
             latitude: loc.latitude,
             longitude: loc.longitude,
             altitude: loc.altitude,
             address: format!(
-                "{} {}, {} {} {} {}",
-                loc.street_number.unwrap_or_default(),
+                "{} {} {} {} {} {}",
+                loc.street_number.clone().unwrap_or_default(),
                 loc.street_name,
                 loc.city,
-                loc.state.map_or_else(|| "".to_string(), |s| s.to_string()),
-                loc.country.to_string(),
+                loc.state.clone().unwrap_or_default(),
+                loc.country,
                 loc.postal_code
             ),
-            bounding_box: loc.bounding_box,
-            location: loc.location,
-            time_zone: loc.time_zone,
+            bounding_box: loc.bounding_box.clone(),
+            location: loc.location.clone(),
+            time_zone: loc.time_zone.clone(),
             created_at: loc.created_at.map(|dt| dt.to_rfc3339()),
             updated_at: loc.updated_at.map(|dt| dt.to_rfc3339()),
-            description: loc.description,
-            notes: loc.notes,
+            description: loc.description.clone(),
+            notes: loc.notes.clone(),
         }
     }
 }

@@ -42,6 +42,7 @@ pub async fn get_locations_nearby(
             ST_Distance(location, ST_GeomFromText($1, 4326)) AS distance  -- Calculate distance
         FROM location
         WHERE ST_DWithin(location, ST_GeomFromText($1, 4326), $2)
+          AND deactivated_at IS NULL  --  Exclude deactivated locations
         ORDER BY distance ASC  -- Order by closest locations first
         LIMIT $3 OFFSET $4
         "#,
@@ -63,7 +64,7 @@ pub async fn get_locations_nearby(
         records
             .into_iter()
             .map(|record| {
-                LocationDTO::from(Location {
+                LocationDTO::from(&Location {
                     location_id: record.location_id,
                     name: record.name,
                     latitude: record.latitude,
@@ -72,13 +73,8 @@ pub async fn get_locations_nearby(
                     street_number: record.street_number,
                     street_name: record.street_name,
                     city: record.city,
-                    state: record
-                        .state
-                        .and_then(|s| Some(s.parse().unwrap_or(crate::enums::USAState::UNKNOWN))),
-                    country: record
-                        .country
-                        .parse()
-                        .unwrap_or(crate::enums::Country::Unknown),
+                    state: record.state,
+                    country: record.country,
                     postal_code: record.postal_code,
                     bounding_box: record.bounding_box,
                     location: record.location,

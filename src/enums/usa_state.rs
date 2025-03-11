@@ -1,9 +1,6 @@
-use serde::{Deserialize, Serialize};
-use sqlx::Type;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
-#[sqlx(type_name = "text", rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Debug)]
 pub enum USAState {
     AL,
     AK,
@@ -65,7 +62,7 @@ impl std::fmt::Display for USAState {
 }
 
 impl FromStr for USAState {
-    type Err = USAState;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -119,7 +116,7 @@ impl FromStr for USAState {
             "WV" => Ok(USAState::WV),
             "WI" => Ok(USAState::WI),
             "WY" => Ok(USAState::WY),
-            _ => Err(USAState::UNKNOWN),
+            _ => Err(()),
         }
     }
 }

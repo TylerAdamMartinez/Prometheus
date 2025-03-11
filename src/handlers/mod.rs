@@ -1,4 +1,5 @@
-pub mod root;
-pub use root::root;
-
 pub mod location;
+pub mod root;
+
+pub use location::*;
+pub use root::*;
