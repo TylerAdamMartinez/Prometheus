@@ -1,16 +1,27 @@
-use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::dtos::requests::bodies::UpdateLocationBody;
+use crate::{
+    dtos::{requests::bodies::UpdateLocationBody, responses::LocationDTO},
+    models::Location,
+};
 
 pub async fn update_location(
     State(pool): State<PgPool>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateLocationBody>,
 ) -> impl IntoResponse {
-    let result = sqlx::query!(
-        "UPDATE location
+    tracing::info!("Received request to update location ID: {}", id);
+
+    let record = sqlx::query!(
+        r#"
+        UPDATE location
         SET 
             name = COALESCE($1, name),
             latitude = COALESCE($2, latitude),
@@ -21,15 +32,23 @@ pub async fn update_location(
             state = COALESCE($7, state),
             country = COALESCE($8, country),
             postal_code = COALESCE($9, postal_code),
-            bounding_box = COALESCE($10, bounding_box),
-            time_zone = COALESCE($11, time_zone),
-            description = COALESCE($12, description),
-            is_active = COALESCE($13, is_active),
-            is_public = COALESCE($14, is_public),
-            notes = COALESCE($15, notes),
+            bounding_box = COALESCE(ST_GeomFromText($10, 4326), bounding_box), -- Convert WKT to Geometry 
+            location = COALESCE(ST_GeomFromText($11, 4326), location),         -- Convert WKT to Geometry 
+            time_zone = COALESCE($12, time_zone),
+            description = COALESCE($13, description),
+            is_active = COALESCE($14, is_active),
+            is_public = COALESCE($15, is_public),
+            notes = COALESCE($16, notes),
             updated_at = NOW()
-        WHERE location_id = $16
-        RETURNING *",
+        WHERE location_id = $17
+        RETURNING 
+            location_id, name, latitude, longitude, altitude, 
+            street_number, street_name, city, state, country, postal_code, 
+            ST_AsText(bounding_box) AS bounding_box,  -- Convert Geometry to WKT
+            ST_AsText(location) AS location,          -- Convert Geometry to WKT
+            time_zone, created_at, updated_at, description, is_active, 
+            deactivated_at, is_public, notes
+        "#,
         payload.name,
         payload.latitude,
         payload.longitude,
@@ -40,6 +59,7 @@ pub async fn update_location(
         payload.country,
         payload.postal_code,
         payload.bounding_box,
+        payload.location,
         payload.time_zone,
         payload.description,
         payload.is_active,
@@ -50,9 +70,49 @@ pub async fn update_location(
     .fetch_optional(&pool)
     .await;
 
-    match result {
-        Ok(Some(location)) => (StatusCode::OK, Json(location)),
-        Ok(None) => (StatusCode::NOT_FOUND, Json("Location not found")),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json("Database error")),
+    match record {
+        Ok(Some(record)) => {
+            tracing::info!("Successfully updated location ID: {}", id);
+            (
+                StatusCode::OK,
+                Json(LocationDTO::from(Location {
+                    location_id: record.location_id,
+                    name: record.name,
+                    latitude: record.latitude,
+                    longitude: record.longitude,
+                    altitude: record.altitude,
+                    street_number: record.street_number,
+                    street_name: record.street_name,
+                    city: record.city,
+                    state: record
+                        .state
+                        .and_then(|s| Some(s.parse().unwrap_or(crate::enums::USAState::UNKNOWN))),
+                    country: record
+                        .country
+                        .parse()
+                        .unwrap_or(crate::enums::Country::Unknown),
+                    postal_code: record.postal_code,
+                    bounding_box: record.bounding_box,
+                    location: record.location,
+                    time_zone: record.time_zone,
+                    created_at: record.created_at,
+                    updated_at: record.updated_at,
+                    description: record.description,
+                    is_active: record.is_active,
+                    deactivated_at: record.deactivated_at,
+                    is_public: record.is_public,
+                    notes: record.notes,
+                })),
+            )
+                .into_response()
+        }
+        Ok(None) => {
+            tracing::info!("Location ID {} not found for update", id);
+            (StatusCode::NOT_FOUND, Json("Location not found")).into_response()
+        }
+        Err(err) => {
+            tracing::error!("Database error while updating location {}: {:?}", id, err);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json("Database error")).into_response()
+        }
     }
 }

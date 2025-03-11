@@ -12,6 +12,7 @@ pub struct UpdateLocationBody {
     pub country: Option<String>,
     pub postal_code: Option<String>,
     pub bounding_box: Option<String>, // WKT format
+    pub location: Option<String>,     // WKT format
     pub time_zone: Option<String>,
     pub description: Option<String>,
     pub is_active: Option<bool>,

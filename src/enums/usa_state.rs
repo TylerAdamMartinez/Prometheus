@@ -55,6 +55,7 @@ pub enum USAState {
     WV,
     WI,
     WY,
+    UNKNOWN,
 }
 
 impl std::fmt::Display for USAState {
@@ -64,7 +65,7 @@ impl std::fmt::Display for USAState {
 }
 
 impl FromStr for USAState {
-    type Err = String;
+    type Err = USAState;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -118,7 +119,13 @@ impl FromStr for USAState {
             "WV" => Ok(USAState::WV),
             "WI" => Ok(USAState::WI),
             "WY" => Ok(USAState::WY),
-            _ => Err(format!("Invalid state: {}", s)),
+            _ => Err(USAState::UNKNOWN),
         }
+    }
+}
+
+impl From<String> for USAState {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or(USAState::UNKNOWN)
     }
 }

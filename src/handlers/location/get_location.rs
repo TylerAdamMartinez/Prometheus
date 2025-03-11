@@ -9,6 +9,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::{
+    dtos::responses::LocationDTO,
     enums::{Country, USAState},
     models::Location,
 };
@@ -105,5 +106,5 @@ pub async fn get_location(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> i
     };
 
     tracing::info!("Returning location data for ID: {}", location.location_id);
-    (StatusCode::OK, Json(location)).into_response()
+    Json(LocationDTO::from(location)).into_response()
 }

@@ -57,6 +57,7 @@ pub enum Country {
     Nepal,
     Venezuela,
     IvoryCoast,
+    Unknown,
 }
 
 impl Country {
@@ -112,12 +113,13 @@ impl Country {
             Country::Nepal => "NPL",
             Country::Venezuela => "VEN",
             Country::IvoryCoast => "CIV",
+            Country::Unknown => "UNKNOWN",
         }
     }
 }
 
 impl FromStr for Country {
-    type Err = String;
+    type Err = Country;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
@@ -170,8 +172,14 @@ impl FromStr for Country {
             "NPL" => Ok(Country::Nepal),
             "VEN" => Ok(Country::Venezuela),
             "CIV" => Ok(Country::IvoryCoast),
-            _ => Err(format!("Invalid country code: {}", s)),
+            _ => Err(Country::Unknown),
         }
+    }
+}
+
+impl From<String> for Country {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or(Country::Unknown)
     }
 }
 
